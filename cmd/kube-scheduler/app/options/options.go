@@ -49,7 +49,7 @@ import (
 	netutils "k8s.io/utils/net"
 )
 
-// Options has all the params needed to run a Scheduler
+// Options has all the params needed to run a Scheduler Options具有运行Scheduler所需的所有参数
 type Options struct {
 	// The default values.
 	ComponentConfig *kubeschedulerconfig.KubeSchedulerConfiguration
@@ -74,7 +74,7 @@ type Options struct {
 	Flags *cliflag.NamedFlagSets
 }
 
-// NewOptions returns default scheduler app options.
+// NewOptions returns default scheduler app options. 返回默认的调度程序应用程序选项。
 func NewOptions() *Options {
 	o := &Options{
 		SecureServing:  apiserveroptions.NewSecureServingOptions().WithLoopback(),
@@ -115,9 +115,9 @@ func (o *Options) ApplyDeprecated() {
 	if o.Flags == nil {
 		return
 	}
-	// Obtain deprecated CLI args. Set them to cfg if specified in command line.
+	// Obtain deprecated CLI args. Set them to cfg if specified in command line. //获取弃用的CLI参数。如果在命令行中指定，请将它们设置为cfg
 	deprecated := o.Flags.FlagSet("deprecated")
-	if deprecated.Changed("profiling") {
+	if deprecated.Changed("profiling") { //判断参数profiling是否改变(用户是否设置了该值)
 		o.ComponentConfig.EnableProfiling = o.Deprecated.EnableProfiling
 	}
 	if deprecated.Changed("contention-profiling") {
@@ -144,14 +144,14 @@ func (o *Options) ApplyDeprecated() {
 }
 
 // ApplyLeaderElectionTo obtains the CLI args related with leaderelection, and override the values in `cfg`.
-// Then the `cfg` object is injected into the `options` object.
+// Then the `cfg` object is injected into the `options` object. 获取与领导权选举相关的CLI参数，并覆盖' cfg '中的值。然后将' cfg '对象注入到' options '对象中。
 func (o *Options) ApplyLeaderElectionTo(cfg *kubeschedulerconfig.KubeSchedulerConfiguration) {
 	if o.Flags == nil {
 		return
 	}
 	// Obtain CLI args related with leaderelection. Set them to `cfg` if specified in command line.
 	leaderelection := o.Flags.FlagSet("leader election")
-	if leaderelection.Changed("leader-elect") {
+	if leaderelection.Changed("leader-elect") { //判断参数leader-elect是否改变(用户是否设置了该值)
 		cfg.LeaderElection.LeaderElect = o.LeaderElection.LeaderElect
 	}
 	if leaderelection.Changed("leader-elect-lease-duration") {
@@ -182,39 +182,40 @@ func (o *Options) initFlags() {
 		return
 	}
 
-	nfs := cliflag.NamedFlagSets{}
-	fs := nfs.FlagSet("misc")
+	nfs := cliflag.NamedFlagSets{} //定义Set
+	fs := nfs.FlagSet("misc")      //返回misc的标志集
+	//定义新的flag值并添加到fs
 	fs.StringVar(&o.ConfigFile, "config", o.ConfigFile, "The path to the configuration file.")
 	fs.StringVar(&o.WriteConfigTo, "write-config-to", o.WriteConfigTo, "If set, write the configuration values to this file and exit.")
 	fs.StringVar(&o.Master, "master", o.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig)")
-
+	//添加标志集
 	o.SecureServing.AddFlags(nfs.FlagSet("secure serving"))
 	o.Authentication.AddFlags(nfs.FlagSet("authentication"))
 	o.Authorization.AddFlags(nfs.FlagSet("authorization"))
 	o.Deprecated.AddFlags(nfs.FlagSet("deprecated"))
-	options.BindLeaderElectionFlags(o.LeaderElection, nfs.FlagSet("leader election"))
+	options.BindLeaderElectionFlags(o.LeaderElection, nfs.FlagSet("leader election")) //将LeaderElectionConfiguration结构字段绑定到一个标志集
 	utilfeature.DefaultMutableFeatureGate.AddFlag(nfs.FlagSet("feature gate"))
 	o.Metrics.AddFlags(nfs.FlagSet("metrics"))
 	logsapi.AddFlags(o.Logs, nfs.FlagSet("logs"))
 
-	o.Flags = &nfs
+	o.Flags = &nfs //标志集set注入到' options '对象中
 }
 
-// ApplyTo applies the scheduler options to the given scheduler app configuration.
+// ApplyTo applies the scheduler options to the given scheduler app configuration. 将调度器选项应用到给定的调度器应用程序配置
 func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
-	if len(o.ConfigFile) == 0 {
+	if len(o.ConfigFile) == 0 { //如果配置为空
 		// If the --config arg is not specified, honor the deprecated as well as leader election CLI args.
-		o.ApplyDeprecated()
-		o.ApplyLeaderElectionTo(o.ComponentConfig)
+		o.ApplyDeprecated()                        //获取弃用的CLI参数。
+		o.ApplyLeaderElectionTo(o.ComponentConfig) //获取与领导权选举相关的CLI参数
 		c.ComponentConfig = *o.ComponentConfig
 	} else {
-		cfg, err := loadConfigFromFile(o.ConfigFile)
+		cfg, err := loadConfigFromFile(o.ConfigFile) //从文件加载参数
 		if err != nil {
 			return err
 		}
 		// If the --config arg is specified, honor the leader election CLI args only.
-		o.ApplyLeaderElectionTo(cfg)
-
+		o.ApplyLeaderElectionTo(cfg) //接受领导选举命令行参数
+		//验证KubeSchedulerConfiguration结构的有效性
 		if err := validation.ValidateKubeSchedulerConfiguration(cfg); err != nil {
 			return err
 		}
@@ -222,20 +223,23 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 		c.ComponentConfig = *cfg
 	}
 
+	//在服务器配置中填充SecureServing服务信息
 	if err := o.SecureServing.ApplyTo(&c.SecureServing, &c.LoopbackClientConfig); err != nil {
 		return err
 	}
 	if o.SecureServing != nil && (o.SecureServing.BindPort != 0 || o.SecureServing.Listener != nil) {
+		//填充Authentication服务信息
 		if err := o.Authentication.ApplyTo(&c.Authentication, c.SecureServing, nil); err != nil {
 			return err
 		}
+		//填充Authorization服务信息
 		if err := o.Authorization.ApplyTo(&c.Authorization); err != nil {
 			return err
 		}
 	}
-	o.Metrics.Apply()
+	o.Metrics.Apply() //将参数应用到Metrics的全局配置中。
 
-	// Apply value independently instead of using ApplyDeprecated() because it can't be configured via ComponentConfig.
+	// Apply value independently instead of using ApplyDeprecated() because it can't be configured via ComponentConfig.独立应用value，而不是使用ApplyDeprecated()，因为它不能通过ComponentConfig配置。
 	if o.Deprecated != nil {
 		c.PodMaxInUnschedulablePodsDuration = o.Deprecated.PodMaxInUnschedulablePodsDuration
 	}
@@ -244,7 +248,7 @@ func (o *Options) ApplyTo(c *schedulerappconfig.Config) error {
 }
 
 // Validate validates all the required options.
-func (o *Options) Validate() []error {
+func (o *Options) Validate() []error { //验证所有必需的选项
 	var errs []error
 
 	if err := validation.ValidateKubeSchedulerConfiguration(o.ComponentConfig); err != nil {
@@ -311,15 +315,15 @@ func (o *Options) Config() (*schedulerappconfig.Config, error) {
 }
 
 // makeLeaderElectionConfig builds a leader election configuration. It will
-// create a new resource lock associated with the configuration.
+// create a new resource lock associated with the configuration. 构建领导者选举配置。它将创建一个与配置相关联的新资源锁
 func makeLeaderElectionConfig(config componentbaseconfig.LeaderElectionConfiguration, kubeConfig *restclient.Config, recorder record.EventRecorder) (*leaderelection.LeaderElectionConfig, error) {
-	hostname, err := os.Hostname()
+	hostname, err := os.Hostname() //获取hostname
 	if err != nil {
 		return nil, fmt.Errorf("unable to get hostname: %v", err)
 	}
 	// add a uniquifier so that two processes on the same host don't accidentally both become active
 	id := hostname + "_" + string(uuid.NewUUID())
-
+	//新建资源锁
 	rl, err := resourcelock.NewFromKubeconfig(config.ResourceLock,
 		config.ResourceNamespace,
 		config.ResourceName,
@@ -332,7 +336,7 @@ func makeLeaderElectionConfig(config componentbaseconfig.LeaderElectionConfigura
 	if err != nil {
 		return nil, fmt.Errorf("couldn't create resource lock: %v", err)
 	}
-
+	//返回领导人选举的代码
 	return &leaderelection.LeaderElectionConfig{
 		Lock:            rl,
 		LeaseDuration:   config.LeaseDuration.Duration,
@@ -347,11 +351,11 @@ func makeLeaderElectionConfig(config componentbaseconfig.LeaderElectionConfigura
 // createKubeConfig creates a kubeConfig from the given config and masterOverride.
 // TODO remove masterOverride when CLI flags are removed.
 func createKubeConfig(config componentbaseconfig.ClientConnectionConfiguration, masterOverride string) (*restclient.Config, error) {
-	kubeConfig, err := clientcmd.BuildConfigFromFlags(masterOverride, config.Kubeconfig)
+	kubeConfig, err := clientcmd.BuildConfigFromFlags(masterOverride, config.Kubeconfig) //构建配置
 	if err != nil {
 		return nil, err
 	}
-
+	//设置配置内容
 	kubeConfig.DisableCompression = true
 	kubeConfig.AcceptContentTypes = config.AcceptContentTypes
 	kubeConfig.ContentType = config.ContentType
@@ -363,12 +367,12 @@ func createKubeConfig(config componentbaseconfig.ClientConnectionConfiguration, 
 
 // createClients creates a kube client and an event client from the given kubeConfig
 func createClients(kubeConfig *restclient.Config) (clientset.Interface, clientset.Interface, error) {
-	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeConfig, "scheduler"))
+	client, err := clientset.NewForConfig(restclient.AddUserAgent(kubeConfig, "scheduler")) //根据给定的配置生成新的客户端集
 	if err != nil {
 		return nil, nil, err
 	}
 
-	eventClient, err := clientset.NewForConfig(kubeConfig)
+	eventClient, err := clientset.NewForConfig(kubeConfig) //根据给定的配置生成新的事件客户端集
 	if err != nil {
 		return nil, nil, err
 	}

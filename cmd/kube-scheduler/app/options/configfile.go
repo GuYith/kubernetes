@@ -31,6 +31,7 @@ import (
 	configv1beta3 "k8s.io/kubernetes/pkg/scheduler/apis/config/v1beta3"
 )
 
+//从文件中加载配置信息
 func loadConfigFromFile(file string) (*config.KubeSchedulerConfiguration, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
@@ -42,11 +43,12 @@ func loadConfigFromFile(file string) (*config.KubeSchedulerConfiguration, error)
 
 func loadConfig(data []byte) (*config.KubeSchedulerConfiguration, error) {
 	// The UniversalDecoder runs defaulting and returns the internal type by default.
+	//解析data，返回对象、gvk（groupVersionKind)、error
 	obj, gvk, err := scheme.Codecs.UniversalDecoder().Decode(data, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	if cfgObj, ok := obj.(*config.KubeSchedulerConfiguration); ok {
+	if cfgObj, ok := obj.(*config.KubeSchedulerConfiguration); ok { //if ok为true
 		// We don't set this field in pkg/scheduler/apis/config/{version}/conversion.go
 		// because the field will be cleared later by API machinery during
 		// conversion. See KubeSchedulerConfiguration internal type definition for
@@ -63,15 +65,16 @@ func loadConfig(data []byte) (*config.KubeSchedulerConfiguration, error) {
 	return nil, fmt.Errorf("couldn't decode as KubeSchedulerConfiguration, got %s: ", gvk)
 }
 
+//编码配置
 func encodeConfig(cfg *config.KubeSchedulerConfiguration) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
-	const mediaType = runtime.ContentTypeYAML
+	const mediaType = runtime.ContentTypeYAML //获取媒体类型
 	info, ok := runtime.SerializerInfoForMediaType(scheme.Codecs.SupportedMediaTypes(), mediaType)
 	if !ok {
 		return buf, fmt.Errorf("unable to locate encoder -- %q is not a supported media type", mediaType)
 	}
 
-	var encoder runtime.Encoder
+	var encoder runtime.Encoder //声明编码器，按照cfg.TypeMeta.APIVersion类型赋值
 	switch cfg.TypeMeta.APIVersion {
 	case configv1beta2.SchemeGroupVersion.String():
 		encoder = scheme.Codecs.EncoderForVersion(info.Serializer, configv1beta2.SchemeGroupVersion)
@@ -82,21 +85,21 @@ func encodeConfig(cfg *config.KubeSchedulerConfiguration) (*bytes.Buffer, error)
 	default:
 		encoder = scheme.Codecs.EncoderForVersion(info.Serializer, configv1.SchemeGroupVersion)
 	}
-	if err := encoder.Encode(cfg, buf); err != nil {
+	if err := encoder.Encode(cfg, buf); err != nil { //编码并返回编码结果
 		return buf, err
 	}
 	return buf, nil
 }
 
-// LogOrWriteConfig logs the completed component config and writes it into the given file name as YAML, if either is enabled
+// LogOrWriteConfig logs the completed component config and writes it into the given file name as YAML, if either is enabled 记录完成的组件配置，并将其作为YAML写入给定的文件名(如果启用了其中任何一个的话)
 func LogOrWriteConfig(fileName string, cfg *config.KubeSchedulerConfiguration, completedProfiles []config.KubeSchedulerProfile) error {
 	klogV := klog.V(2)
-	if !klogV.Enabled() && len(fileName) == 0 {
+	if !klogV.Enabled() && len(fileName) == 0 { //判断是否启用klog
 		return nil
 	}
-	cfg.Profiles = completedProfiles
+	cfg.Profiles = completedProfiles //配置文件
 
-	buf, err := encodeConfig(cfg)
+	buf, err := encodeConfig(cfg) //编码配置
 	if err != nil {
 		return err
 	}
@@ -105,12 +108,12 @@ func LogOrWriteConfig(fileName string, cfg *config.KubeSchedulerConfiguration, c
 		klogV.InfoS("Using component config", "config", buf.String())
 	}
 
-	if len(fileName) > 0 {
-		configFile, err := os.Create(fileName)
+	if len(fileName) > 0 { //若filename不为空
+		configFile, err := os.Create(fileName) //创建文件
 		if err != nil {
 			return err
 		}
-		defer configFile.Close()
+		defer configFile.Close() //延迟调用栈，结束时关闭文件
 		if _, err := io.Copy(configFile, buf); err != nil {
 			return err
 		}
