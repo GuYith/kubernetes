@@ -245,7 +245,7 @@ func responsibleForPod(pod *v1.Pod, profiles profile.Map) bool {
 }
 
 // addAllEventHandlers is a helper function used in tests and in Scheduler
-// to add event handlers for various informers.
+// to add event handlers for various informers. 在测试和调度器中用于为各种通知程序添加事件处理程序的助手函数
 func addAllEventHandlers(
 	sched *Scheduler,
 	informerFactory informers.SharedInformerFactory,

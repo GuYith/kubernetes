@@ -109,7 +109,7 @@ type SchedulingQueue interface {
 	AssignedPodUpdated(pod *v1.Pod)
 	PendingPods() ([]*v1.Pod, string)
 	// Close closes the SchedulingQueue so that the goroutine which is
-	// waiting to pop items can exit gracefully.
+	// waiting to pop items can exit gracefully. Close关闭SchedulingQueue，以便等待弹出项的goroutine协程可以优雅地退出。
 	Close()
 	// Run starts the goroutines managing the queue.
 	Run()

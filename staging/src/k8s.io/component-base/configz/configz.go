@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package configz serves ComponentConfig objects from running components.
+// Package configz serves ComponentConfig objects from running components. configz包提供运行组件的ComponentConfig对象。
 //
 // Each component that wants to serve its ComponentConfig creates a Config
-// object, and the program should call InstallHandler once. e.g.,
+// object, and the program should call InstallHandler once. e.g., 每个想要为其ComponentConfig提供服务的组件都会创建一个Config对象，该程序应该调用InstallHandler一次
 //
 //	func main() {
 //		boatConfig := getBoatConfig()
@@ -59,7 +59,7 @@ type Config struct {
 }
 
 // InstallHandler adds an HTTP handler on the given mux for the "/configz"
-// endpoint which serves all registered ComponentConfigs in JSON format.
+// endpoint which serves all registered ComponentConfigs in JSON format. 在给定的mux上为“/configz”端点添加一个HTTP处理程序，它为JSON格式的所有注册componentconfig提供服务。
 func InstallHandler(m mux) {
 	m.Handle("/configz", http.HandlerFunc(handle))
 }

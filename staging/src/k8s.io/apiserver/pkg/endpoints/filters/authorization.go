@@ -47,6 +47,7 @@ func WithAuthorization(handler http.Handler, a authorizer.Authorizer, s runtime.
 		klog.Warning("Authorization is disabled")
 		return handler
 	}
+	//HandlerFunc是一个适配器，允许使用普通函数作为HTTP处理程序
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 

@@ -53,17 +53,17 @@ func New(
 }
 
 // ListenForSignal starts a goroutine that will trigger the CacheDebugger's
-// behavior when the process receives SIGINT (Windows) or SIGUSER2 (non-Windows).
+// behavior when the process receives SIGINT (Windows) or SIGUSER2 (non-Windows).  ListenForSignal启动一个goroutine协程，当进程收到SIGINT (Windows)或SIGUSER2(非Windows)时，该协程将触发CacheDebugger的行为。
 func (d *CacheDebugger) ListenForSignal(stopCh <-chan struct{}) {
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, compareSignal)
+	signal.Notify(ch, compareSignal) //传信号到ch
 
-	go func() {
+	go func() { //启动协程函数
 		for {
-			select {
-			case <-stopCh:
+			select { //监听IO操作
+			case <-stopCh: //stopCh 传出数据
 				return
-			case <-ch:
+			case <-ch: //若收到消息，将触发CacheDebugger的行为
 				d.Comparer.Compare()
 				d.Dumper.DumpAll()
 			}

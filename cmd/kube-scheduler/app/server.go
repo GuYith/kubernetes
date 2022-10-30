@@ -65,7 +65,7 @@ import (
 )
 
 func init() {
-	utilruntime.Must(logsapi.AddFeatureGates(utilfeature.DefaultMutableFeatureGate))
+	utilruntime.Must(logsapi.AddFeatureGates(utilfeature.DefaultMutableFeatureGate)) //添加此包使用的所有featureGates（功能开关）
 	utilruntime.Must(features.AddFeatureGates(utilfeature.DefaultMutableFeatureGate))
 }
 
@@ -74,9 +74,9 @@ type Option func(runtime.Registry) error
 
 // NewSchedulerCommand creates a *cobra.Command object with default parameters and registryOptions
 func NewSchedulerCommand(registryOptions ...Option) *cobra.Command {
-	opts := options.NewOptions()
+	opts := options.NewOptions() //定义一个新的options类
 
-	cmd := &cobra.Command{
+	cmd := &cobra.Command{ //定义一个新的cobra.Command并取其地址
 		Use: "kube-scheduler",
 		Long: `The Kubernetes scheduler is a control plane process which assigns
 Pods to Nodes. The scheduler determines which Nodes are valid placements for
@@ -100,16 +100,16 @@ for more information about scheduling and the kube-scheduler component.`,
 	}
 
 	nfs := opts.Flags
-	verflag.AddFlags(nfs.FlagSet("global"))
-	globalflag.AddGlobalFlags(nfs.FlagSet("global"), cmd.Name(), logs.SkipLoggingConfigurationFlags())
+	verflag.AddFlags(nfs.FlagSet("global"))                                                            //添加标志集
+	globalflag.AddGlobalFlags(nfs.FlagSet("global"), cmd.Name(), logs.SkipLoggingConfigurationFlags()) //添加全局标志集
 	fs := cmd.Flags()
 	for _, f := range nfs.FlagSets {
 		fs.AddFlagSet(f)
 	}
 
-	cols, _, _ := term.TerminalSize(cmd.OutOrStdout())
-	cliflag.SetUsageAndHelpFunc(cmd, *nfs, cols)
-
+	cols, _, _ := term.TerminalSize(cmd.OutOrStdout()) //返回用户终端的当前宽度(cols)和高度。
+	cliflag.SetUsageAndHelpFunc(cmd, *nfs, cols)       //设置用法和帮助功能
+	//指示各种shell补全实现将命名标志的补全限制为指定的文件扩展名
 	if err := cmd.MarkFlagFilename("config", "yaml", "yml", "json"); err != nil {
 		klog.ErrorS(err, "Failed to mark flag filename")
 	}
@@ -117,63 +117,64 @@ for more information about scheduling and the kube-scheduler component.`,
 	return cmd
 }
 
-// runCommand runs the scheduler.
+// runCommand runs the scheduler. 运行scheduler
 func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Option) error {
-	verflag.PrintAndExitIfRequested()
+	verflag.PrintAndExitIfRequested() //检查是否传递了-version标志，如果传递了，则打印版本并退出。
 
 	// Activate logging as soon as possible, after that
-	// show flags with the final logging configuration.
+	// show flags with the final logging configuration. 在显示最终日志配置的标志之后，尽快激活日志
 	if err := logsapi.ValidateAndApply(opts.Logs, utilfeature.DefaultFeatureGate); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	cliflag.PrintFlags(cmd.Flags())
+	cliflag.PrintFlags(cmd.Flags()) //日志记录标志集中的标志
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go func() {
-		stopCh := server.SetupSignalHandler()
-		<-stopCh
+	ctx, cancel := context.WithCancel(context.Background()) //返回带有上下文通道的父进程副本。
+	defer cancel()                                          //延迟执行cancel(): 取消此上下文,释放与之关联的资源
+	go func() {                                             //协程函数
+		stopCh := server.SetupSignalHandler() //注册SIGTERM和SIGINT。返回一个关闭这些信号量的停止通道
+		<-stopCh                              //阻塞
 		cancel()
 	}()
 
-	cc, sched, err := Setup(ctx, opts, registryOptions...)
+	cc, sched, err := Setup(ctx, opts, registryOptions...) //根据命令args和选项创建已完成的配置和调度程序
 	if err != nil {
 		return err
 	}
 	// add feature enablement metrics
-	utilfeature.DefaultMutableFeatureGate.AddMetrics()
-	return Run(ctx, cc, sched)
+	utilfeature.DefaultMutableFeatureGate.AddMetrics() //添加特性启用metrics
+	return Run(ctx, cc, sched)                         //运行
 }
 
-// Run executes the scheduler based on the given configuration. It only returns on error or when context is done.
+// Run executes the scheduler based on the given configuration. It only returns on error or when context is done. 基于给定的配置执行调度程序。它只在发生错误或上下文完成时返回。
 func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *scheduler.Scheduler) error {
 	// To help debugging, immediately log version
 	klog.InfoS("Starting Kubernetes Scheduler", "version", version.Get())
 
 	klog.InfoS("Golang settings", "GOGC", os.Getenv("GOGC"), "GOMAXPROCS", os.Getenv("GOMAXPROCS"), "GOTRACEBACK", os.Getenv("GOTRACEBACK"))
 
-	// Configz registration.
+	// Configz registration. 创建新的config对象
 	if cz, err := configz.New("componentconfig"); err == nil {
-		cz.Set(cc.ComponentConfig)
+		cz.Set(cc.ComponentConfig) //为Config设置配置信息
 	} else {
 		return fmt.Errorf("unable to register configz: %s", err)
 	}
 
-	// Start events processing pipeline.
-	cc.EventBroadcaster.StartRecordingToSink(ctx.Done())
-	defer cc.EventBroadcaster.Shutdown()
+	// Start events processing pipeline. 启动事件处理管道。
+	//开始发送从指定的eventbroadcast接收到的事件。
+	cc.EventBroadcaster.StartRecordingToSink(ctx.Done()) //ctx.Done() 返回一个通道，该通道在工作完成后将被关闭，表明上下文会被取消
+	defer cc.EventBroadcaster.Shutdown()                 //加入延迟队列
 
-	// Setup healthz checks.
+	// Setup healthz checks. 设置healthz检查
 	var checks []healthz.HealthChecker
-	if cc.ComponentConfig.LeaderElection.LeaderElect {
+	if cc.ComponentConfig.LeaderElection.LeaderElect { //若配置中：允许leader选举客户端在执行主循环之前获得leader
 		checks = append(checks, cc.LeaderElection.WatchDog)
 	}
 
 	waitingForLeader := make(chan struct{})
-	isLeader := func() bool {
+	isLeader := func() bool { //判断是否为Leader
 		select {
-		case _, ok := <-waitingForLeader:
+		case _, ok := <-waitingForLeader: //Ok==true 表明管道已关闭，反之还开启
 			// if channel is closed, we are leading
 			return !ok
 		default:
@@ -182,11 +183,11 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 		}
 	}
 
-	// Start up the healthz server.
+	// Start up the healthz server. 启动healthz服务器
 	if cc.SecureServing != nil {
 		handler := buildHandlerChain(newHealthzAndMetricsHandler(&cc.ComponentConfig, cc.InformerFactory, isLeader, checks...), cc.Authentication.Authenticator, cc.Authorization.Authorizer)
 		// TODO: handle stoppedCh and listenerStoppedCh returned by c.SecureServing.Serve
-		if _, _, err := cc.SecureServing.Serve(handler, 0, ctx.Done()); err != nil {
+		if _, _, err := cc.SecureServing.Serve(handler, 0, ctx.Done()); err != nil { //启动服务并判断启动是否成功
 			// fail early for secure handlers, removing the old error loop from above
 			return fmt.Errorf("failed to start secure server: %v", err)
 		}
@@ -242,11 +243,12 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 	return fmt.Errorf("finished without leader elect")
 }
 
-// buildHandlerChain wraps the given handler with the standard filters.
+// buildHandlerChain wraps the given handler with the standard filters. 用标准过滤器包装给定的Handler。 返回handler
 func buildHandlerChain(handler http.Handler, authn authenticator.Request, authz authorizer.Authorizer) http.Handler {
 	requestInfoResolver := &apirequest.RequestInfoFactory{}
 	failedHandler := genericapifilters.Unauthorized(scheme.Codecs)
 
+	//handler
 	handler = genericapifilters.WithAuthorization(handler, authz, scheme.Codecs)
 	handler = genericapifilters.WithAuthentication(handler, authn, failedHandler, nil)
 	handler = genericapifilters.WithRequestInfo(handler, requestInfoResolver)
@@ -257,11 +259,12 @@ func buildHandlerChain(handler http.Handler, authn authenticator.Request, authz 
 	return handler
 }
 
+// PathRecorderMux 包装一个mux对象并记录注册的exposedPaths。
 func installMetricHandler(pathRecorderMux *mux.PathRecorderMux, informers informers.SharedInformerFactory, isLeader func() bool) {
-	configz.InstallHandler(pathRecorderMux)
+	configz.InstallHandler(pathRecorderMux) //在给定的mux上为“/configz”端点添加一个HTTP处理程序，它为JSON格式的所有注册componentconfig提供服务。
 	pathRecorderMux.Handle("/metrics", legacyregistry.HandlerWithReset())
 
-	resourceMetricsHandler := resources.Handler(informers.Core().V1().Pods().Lister())
+	resourceMetricsHandler := resources.Handler(informers.Core().V1().Pods().Lister()) //定义handler
 	pathRecorderMux.HandleFunc("/metrics/resources", func(w http.ResponseWriter, req *http.Request) {
 		if !isLeader() {
 			return
@@ -271,7 +274,7 @@ func installMetricHandler(pathRecorderMux *mux.PathRecorderMux, informers inform
 }
 
 // newHealthzAndMetricsHandler creates a healthz server from the config, and will also
-// embed the metrics handler.
+// embed the metrics handler. 从配置创建healthz服务器，并将嵌入度量处理程序。
 func newHealthzAndMetricsHandler(config *kubeschedulerconfig.KubeSchedulerConfiguration, informers informers.SharedInformerFactory, isLeader func() bool, checks ...healthz.HealthChecker) http.Handler {
 	pathRecorderMux := mux.NewPathRecorderMux("kube-scheduler")
 	healthz.InstallHandler(pathRecorderMux, checks...)
@@ -279,7 +282,7 @@ func newHealthzAndMetricsHandler(config *kubeschedulerconfig.KubeSchedulerConfig
 	if utilfeature.DefaultFeatureGate.Enabled(features.ComponentSLIs) {
 		slis.SLIMetricsWithReset{}.Install(pathRecorderMux)
 	}
-	if config.EnableProfiling {
+	if config.EnableProfiling { //是否启用profiling
 		routes.Profiling{}.Install(pathRecorderMux)
 		if config.EnableContentionProfiling {
 			goruntime.SetBlockProfileRate(1)
@@ -289,6 +292,7 @@ func newHealthzAndMetricsHandler(config *kubeschedulerconfig.KubeSchedulerConfig
 	return pathRecorderMux
 }
 
+//获取recorder工厂
 func getRecorderFactory(cc *schedulerserverconfig.CompletedConfig) profile.RecorderFactory {
 	return func(name string) events.EventRecorder {
 		return cc.EventBroadcaster.NewRecorder(name)
@@ -297,13 +301,14 @@ func getRecorderFactory(cc *schedulerserverconfig.CompletedConfig) profile.Recor
 
 // WithPlugin creates an Option based on plugin name and factory. Please don't remove this function: it is used to register out-of-tree plugins,
 // hence there are no references to it from the kubernetes scheduler code base.
+//根据插件名称和工厂创建一个Option
 func WithPlugin(name string, factory runtime.PluginFactory) Option {
 	return func(registry runtime.Registry) error {
 		return registry.Register(name, factory)
 	}
 }
 
-// Setup creates a completed config and a scheduler based on the command args and options
+// Setup creates a completed config and a scheduler based on the command args and options 根据命令args和选项创建已完成的配置和调度程序
 func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions ...Option) (*schedulerserverconfig.CompletedConfig, *scheduler.Scheduler, error) {
 	if cfg, err := latest.Default(); err != nil {
 		return nil, nil, err
@@ -321,18 +326,18 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	}
 
 	// Get the completed config
-	cc := c.Complete()
+	cc := c.Complete() //获取完整的配置
 
-	outOfTreeRegistry := make(runtime.Registry)
+	outOfTreeRegistry := make(runtime.Registry) //注册表
 	for _, option := range outOfTreeRegistryOptions {
 		if err := option(outOfTreeRegistry); err != nil {
 			return nil, nil, err
 		}
 	}
 
-	recorderFactory := getRecorderFactory(&cc)
-	completedProfiles := make([]kubeschedulerconfig.KubeSchedulerProfile, 0)
-	// Create the scheduler.
+	recorderFactory := getRecorderFactory(&cc)                               //获取recorder工厂
+	completedProfiles := make([]kubeschedulerconfig.KubeSchedulerProfile, 0) //创建数组comleted的概要文件
+	// Create the scheduler. 创建调度器
 	sched, err := scheduler.New(cc.Client,
 		cc.InformerFactory,
 		cc.DynInformerFactory,
