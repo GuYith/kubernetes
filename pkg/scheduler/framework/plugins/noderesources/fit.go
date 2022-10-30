@@ -245,7 +245,7 @@ type InsufficientResource struct {
 	Capacity  int64
 }
 
-// Fits checks if node have enough resources to host the pod.
+// Fits checks if node have enough resources to host the pod. Fits检查节点是否有足够的资源来托管pod。
 func Fits(pod *v1.Pod, nodeInfo *framework.NodeInfo) []InsufficientResource {
 	return fitsRequest(computePodResourceRequest(pod), nodeInfo, nil, nil)
 }

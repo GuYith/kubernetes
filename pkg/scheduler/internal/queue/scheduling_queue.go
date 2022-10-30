@@ -603,7 +603,9 @@ func (p *PriorityQueue) Delete(pod *v1.Pod) error {
 }
 
 // AssignedPodAdded is called when a bound pod is added. Creation of this pod
-// may make pending pods with matching affinity terms schedulable.
+// may make pending pods with matching affinity terms schedulable. 当绑定的pod被添加时，会调用assignnedpodadded，创建此pod可以使依赖该pod的挂起pods变为可调度。
+// 通知调度队列收到了已调度(Assigned指的是已分配Node)pod添加的消息，
+// 那么因为依赖该Pod被放入不可调度自子队列的Pod可以考虑进入active或者退避子队列了。
 func (p *PriorityQueue) AssignedPodAdded(pod *v1.Pod) {
 	p.lock.Lock()
 	p.movePodsToActiveOrBackoffQueue(p.getUnschedulablePodsWithMatchingAffinityTerm(pod), AssignedPodAdd)
@@ -618,7 +620,7 @@ func (p *PriorityQueue) AssignedPodUpdated(pod *v1.Pod) {
 	p.lock.Unlock()
 }
 
-// MoveAllToActiveOrBackoffQueue moves all pods from unschedulablePods to activeQ or backoffQ.
+// MoveAllToActiveOrBackoffQueue moves all pods from unschedulablePods to activeQ or backoffQ. 将所有pod从unschedulablePods移动到activeQ或backoffQ。
 // This function adds all pods and then signals the condition variable to ensure that
 // if Pop() is waiting for an item, it receives the signal after all the pods are in the
 // queue and the head is the highest priority pod.
