@@ -706,7 +706,7 @@ func (ni *NominatingInfo) Mode() NominatingMode {
 	return ni.NominatingMode
 }
 
-// PodNominator abstracts operations to maintain nominated Pods.
+// PodNominator abstracts operations to maintain nominated Pods. 提名指可以将Pod调度到提名的Node上，但是需要等被抢占的Pod退出后腾出资源才能执行调度。PodNominator记录了哪些Pod获得Node提名
 type PodNominator interface {
 	// AddNominatedPod adds the given pod to the nominator or
 	// updates it if it already exists.

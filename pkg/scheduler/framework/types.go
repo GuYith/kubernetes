@@ -93,14 +93,14 @@ type QueuedPodInfo struct {
 	// The time pod added to the scheduling queue.
 	Timestamp time.Time
 	// Number of schedule attempts before successfully scheduled.
-	// It's used to record the # attempts metric.
+	// It's used to record the # attempts metric. 成功调度之前的调度尝试次数。它用于记录# attempts指标。
 	Attempts int
 	// The time when the pod is added to the queue for the first time. The pod may be added
 	// back to the queue multiple times before it's successfully scheduled.
 	// It shouldn't be updated once initialized. It's used to record the e2e scheduling
 	// latency for a pod.
 	InitialAttemptTimestamp time.Time
-	// If a Pod failed in a scheduling cycle, record the plugin names it failed by.
+	// If a Pod failed in a scheduling cycle, record the plugin names it failed by. 如果一个Pod在调度周期中失败了，记录它失败的插件名称。
 	UnschedulablePlugins sets.String
 }
 
